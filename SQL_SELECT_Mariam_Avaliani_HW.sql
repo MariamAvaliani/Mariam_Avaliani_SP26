@@ -188,7 +188,9 @@ INNER JOIN public.store AS st
 INNER JOIN public.address AS a 
     ON st.address_id = a.address_id
 GROUP BY 
-    a.address, a.address2
+    a.address_id,   -- added
+    a.address,
+    a.address2
 ORDER BY full_address;
 
 
@@ -242,7 +244,9 @@ INNER JOIN public.store AS st
 INNER JOIN public.address AS a 
     ON st.address_id = a.address_id
 GROUP BY 
-    a.address, a.address2
+    a.address_id,   -- added
+    a.address,
+    a.address2
 ORDER BY full_address;
 
 /*
@@ -287,7 +291,10 @@ INNER JOIN public.store AS st
 INNER JOIN public.address AS a 
     ON st.address_id = a.address_id
 WHERE p.payment_date >= '2017-04-01'
-GROUP BY a.address, a.address2
+GROUP BY 
+    a.address_id,   -- added
+    a.address,
+    a.address2
 ORDER BY full_address;
 
 /*
@@ -608,24 +615,41 @@ documentary_cte AS (
 Main query:
 - Use all years from film table
 - LEFT JOIN each CTE to ensure missing genres appear as NULL
+
+using case:
 */
 
 SELECT 
-    y.release_year,
-    COALESCE(d.drama_count, 0) AS number_of_drama_movies,
-    COALESCE(t.travel_count, 0) AS number_of_travel_movies,
-    COALESCE(doc.documentary_count, 0) AS number_of_documentary_movies
-FROM (
-    SELECT DISTINCT release_year
-    FROM public.film
-) AS y
-LEFT JOIN drama_cte AS d 
-    ON y.release_year = d.release_year
-LEFT JOIN travel_cte AS t 
-    ON y.release_year = t.release_year
-LEFT JOIN documentary_cte AS doc 
-    ON y.release_year = doc.release_year
-ORDER BY y.release_year DESC;
+    f.release_year,
+    
+    SUM(CASE 
+        WHEN c.name = 'Drama' THEN 1 
+        ELSE 0 
+    END) AS number_of_drama_movies,
+    
+    SUM(CASE 
+        WHEN c.name = 'Travel' THEN 1 
+        ELSE 0 
+    END) AS number_of_travel_movies,
+    
+    SUM(CASE 
+        WHEN c.name = 'Documentary' THEN 1 
+        ELSE 0 
+    END) AS number_of_documentary_movies
+
+FROM public.film AS f
+
+INNER JOIN public.film_category AS fc 
+    ON f.film_id = fc.film_id
+
+INNER JOIN public.category AS c 
+    ON fc.category_id = c.category_id
+
+GROUP BY 
+    f.release_year
+
+ORDER BY 
+    f.release_year DESC;
 
 
 /*
@@ -967,60 +991,9 @@ Subquery-only
 COALESCE used to replace NULL with 0 for actors with <2 films
 */
 
-SELECT 
-    a.actor_id,
-    a.first_name,
-    a.last_name,
-
-    -- Max gap in years between consecutive films; 0 if no or single film
-    COALESCE(
-        (
-            SELECT MAX(f2.release_year - f1.release_year)
-            FROM public.film_actor AS fa1
-            JOIN public.film_actor AS fa2 
-                ON fa1.actor_id = fa2.actor_id
-            JOIN public.film AS f1 ON fa1.film_id = f1.film_id
-            JOIN public.film AS f2 ON fa2.film_id = f2.film_id
-            WHERE fa1.actor_id = a.actor_id
-              AND f2.release_year > f1.release_year
-        ), 0
-    ) AS max_gap_years
-
-FROM public.actor AS a
-ORDER BY max_gap_years DESC;
-
-/*
-Task 3 V2: Max gap between sequential films per actor
-CTE version with COALESCE
-*/
-
-WITH actor_films AS (
-    SELECT fa.actor_id, f.release_year
-    FROM public.film_actor AS fa
-    JOIN public.film AS f ON fa.film_id = f.film_id
-),
-film_gaps AS (
-    SELECT af1.actor_id, af2.release_year - af1.release_year AS gap_years
-    FROM actor_films AS af1
-    JOIN actor_films AS af2
-      ON af1.actor_id = af2.actor_id
-     AND af2.release_year > af1.release_year
-)
-
-SELECT 
-    a.actor_id,
-    a.first_name,
-    a.last_name,
-    COALESCE(MAX(fg.gap_years), 0) AS max_gap_years
-FROM public.actor AS a
-LEFT JOIN film_gaps AS fg ON a.actor_id = fg.actor_id
-GROUP BY a.actor_id, a.first_name, a.last_name
-ORDER BY max_gap_years DESC;
-
-/*
-Task 3 V2: Max gap between sequential films per actor
-JOIN-only version with COALESCE
-*/
+-- Task: Max gap between consecutive films per actor
+-- No window functions used
+-- COALESCE used to handle actors with <2 films
 
 SELECT 
     a.actor_id,
@@ -1028,9 +1001,45 @@ SELECT
     a.last_name,
     COALESCE(MAX(f2.release_year - f1.release_year), 0) AS max_gap_years
 FROM public.actor AS a
-LEFT JOIN public.film_actor AS fa1 ON a.actor_id = fa1.actor_id
-LEFT JOIN public.film_actor AS fa2 ON a.actor_id = fa2.actor_id
-LEFT JOIN public.film AS f1 ON fa1.film_id = f1.film_id
-LEFT JOIN public.film AS f2 ON fa2.film_id = f2.film_id AND f2.release_year > f1.release_year
-GROUP BY a.actor_id, a.first_name, a.last_name
+
+-- Join actor to their films
+LEFT JOIN public.film_actor AS fa1 
+    ON a.actor_id = fa1.actor_id
+LEFT JOIN public.film AS f1 
+    ON fa1.film_id = f1.film_id
+
+-- Self-join to find the "next" film per actor
+LEFT JOIN public.film_actor AS fa2 
+    ON a.actor_id = fa2.actor_id
+LEFT JOIN public.film AS f2 
+    ON fa2.film_id = f2.film_id
+   AND f2.release_year = (
+       -- Pick the smallest release_year greater than f1.release_year
+       SELECT MIN(f3.release_year)
+       FROM public.film_actor fa3
+       JOIN public.film f3 ON fa3.film_id = f3.film_id
+       WHERE fa3.actor_id = a.actor_id
+         AND f3.release_year > f1.release_year
+   )
+
+GROUP BY 
+    a.actor_id, a.first_name, a.last_name
 ORDER BY max_gap_years DESC;
+
+/*
+LEFT JOIN fa1 → f1
+Pulls all films per actor
+Each film becomes a row
+LEFT JOIN fa2 → f2
+Self-join: find the “next film” for each f1
+Subquery picks minimum release_year greater than f1.release_year
+This ensures consecutive films only
+MAX(f2.release_year - f1.release_year)
+Calculates largest gap between consecutive films
+COALESCE(..., 0)
+Handles actors with 0 or 1 film → returns 0 instead of NULL
+GROUP BY
+Groups results per actor so MAX() works correctly
+ORDER BY max_gap_years DESC
+Shows actors with the largest gaps at the top
+*/
