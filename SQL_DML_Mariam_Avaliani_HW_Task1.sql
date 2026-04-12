@@ -1,4 +1,6 @@
---task1
+-- =======================
+-- TASK 1: INSERT FILMS
+-- =======================
 BEGIN;
 
 INSERT INTO public.film (title, rental_rate, rental_duration, language_id, last_update)
@@ -20,12 +22,10 @@ RETURNING film_id, title;
 
 COMMIT;
 
-select * from film
-where extract (year from last_update) = 2026;
 
-
-
-
+-- =======================
+-- INSERT ACTORS
+-- =======================
 BEGIN;
 
 INSERT INTO public.actor (first_name, last_name, last_update)
@@ -53,12 +53,40 @@ RETURNING actor_id;
 COMMIT;
 
 
-
-
-
+-- =======================
+-- LINK ACTORS TO FILMS (FIXED)
+-- =======================
 BEGIN;
+
+INSERT INTO public.film_actor (actor_id, film_id, last_update)
+SELECT a.actor_id, f.film_id, CURRENT_DATE
+FROM public.actor a
+JOIN public.film f ON (
+    (a.first_name = 'Matthew' AND a.last_name = 'McConaughey' AND f.title = 'Interstellar') OR
+    (a.first_name = 'Anne' AND a.last_name = 'Hathaway' AND f.title = 'Interstellar') OR
+    (a.first_name = 'Meryl' AND a.last_name = 'Streep' AND f.title = 'The Devil Wears Prada') OR
+    (a.first_name = 'Emily' AND a.last_name = 'Blunt' AND f.title = 'The Devil Wears Prada') OR
+    (a.first_name = 'Johnny' AND a.last_name = 'Depp' AND f.title = 'Pirates of the Caribbean: On Stranger Tides') OR
+    (a.first_name = 'Orlando' AND a.last_name = 'Bloom' AND f.title = 'Pirates of the Caribbean: On Stranger Tides')
+)
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.film_actor fa
+    WHERE fa.actor_id = a.actor_id
+      AND fa.film_id = f.film_id
+);
+
+COMMIT;
+
+
+-- =======================
+-- INSERT INVENTORY (FIXED store_id)
+-- =======================
+BEGIN;
+
 INSERT INTO public.inventory (film_id, store_id, last_update)
-SELECT f.film_id, 1, CURRENT_DATE
+SELECT f.film_id,
+       (SELECT store_id FROM store ORDER BY store_id LIMIT 1),
+       CURRENT_DATE
 FROM public.film f
 WHERE f.title IN (
     'Interstellar',
@@ -67,14 +95,17 @@ WHERE f.title IN (
 )
 AND NOT EXISTS (
     SELECT 1 FROM public.inventory i
-    WHERE i.film_id = f.film_id AND i.store_id = 1
+    WHERE i.film_id = f.film_id
+      AND i.store_id = (SELECT store_id FROM store ORDER BY store_id LIMIT 1)
 )
 RETURNING inventory_id;
+
 COMMIT;
 
 
-
-
+-- =======================
+-- UPDATE CUSTOMER (FIXED store_id & address_id)
+-- =======================
 BEGIN;
 
 WITH eligible_customer AS (
@@ -93,20 +124,19 @@ SET
     first_name = 'Mariam',
     last_name = 'Avaliani',
     email = 'mariamavaliani0217@gmail.com',
-    store_id = 1,                
-    active = 1,                    
-    address_id = 1,                
+    store_id = (SELECT store_id FROM store ORDER BY store_id LIMIT 1),
+    address_id = (SELECT address_id FROM address ORDER BY address_id LIMIT 1),
+    active = 1,
     last_update = CURRENT_DATE
 WHERE customer_id = (SELECT customer_id FROM eligible_customer)
-RETURNING customer_id, first_name, last_name, address_id;
+RETURNING customer_id;
 
 COMMIT;
 
 
-
-
-
-
+-- =======================
+-- DELETE OLD PAYMENTS & RENTALS
+-- =======================
 BEGIN;
 
 DELETE FROM payment
@@ -116,8 +146,7 @@ WHERE customer_id = (
     WHERE first_name = 'Mariam'
       AND last_name = 'Avaliani'
     LIMIT 1
-)
-RETURNING payment_id;
+);
 
 DELETE FROM rental
 WHERE customer_id = (
@@ -126,23 +155,22 @@ WHERE customer_id = (
     WHERE first_name = 'Mariam'
       AND last_name = 'Avaliani'
     LIMIT 1
-)
-RETURNING rental_id;
+);
 
 COMMIT;
 
 
-
-
-
+-- =======================
+-- RENT MOVIES + PAYMENTS (FIXED staff_id)
+-- =======================
 BEGIN;
--- 1. Rent favorite movies (without return_date)
+
 INSERT INTO rental (inventory_id, customer_id, rental_date, staff_id, last_update)
 SELECT i.inventory_id,
        c.customer_id,
-       '2017-01-10'::date AS rental_date,
-       1 AS staff_id,
-       CURRENT_DATE AS last_update
+       '2017-01-10'::date,
+       (SELECT staff_id FROM staff ORDER BY staff_id LIMIT 1),
+       CURRENT_DATE
 FROM inventory i
 JOIN film f ON f.film_id = i.film_id
 JOIN customer c ON c.first_name = 'Mariam' AND c.last_name = 'Avaliani'
@@ -151,41 +179,35 @@ WHERE f.title IN (
     'Interstellar',
     'The Devil Wears Prada'
 )
-  AND NOT EXISTS (
-      SELECT 1 FROM rental r
-      WHERE r.inventory_id = i.inventory_id
-        AND r.customer_id = c.customer_id
-        AND r.rental_date = '2017-01-10'::date
-  )
-RETURNING rental_id, inventory_id, customer_id;
+AND NOT EXISTS (
+    SELECT 1 FROM rental r
+    WHERE r.inventory_id = i.inventory_id
+      AND r.customer_id = c.customer_id
+);
 
--- 2. Insert corresponding payments
+-- PAYMENTS
 INSERT INTO payment (customer_id, staff_id, rental_id, amount, payment_date)
 SELECT c.customer_id,
-       1 AS staff_id,
+       (SELECT staff_id FROM staff ORDER BY staff_id LIMIT 1),
        r.rental_id,
-       v.rate AS amount,
-       '2017-01-15'::date AS payment_date
+       v.rate,
+       '2017-01-15'::date
 FROM rental r
 JOIN inventory i ON i.inventory_id = r.inventory_id
 JOIN film f ON f.film_id = i.film_id
 JOIN customer c ON c.customer_id = r.customer_id
 JOIN (VALUES 
-        ('Pirates of the Caribbean: On Stranger Tides', 4.99),
-        ('Interstellar', 9.99),
-        ('The Devil Wears Prada', 19.99)
-     ) AS v(title, rate) ON f.title = v.title
-WHERE c.first_name = 'Mariam' AND c.last_name = 'Avaliani'
+    ('Pirates of the Caribbean: On Stranger Tides', 4.99),
+    ('Interstellar', 9.99),
+    ('The Devil Wears Prada', 19.99)
+) AS v(title, rate) ON f.title = v.title
+WHERE c.first_name = 'Mariam'
+  AND c.last_name = 'Avaliani'
   AND NOT EXISTS (
-      SELECT 1 FROM payment p
-      WHERE p.rental_id = r.rental_id
-  );
+      SELECT 1 FROM payment p WHERE p.rental_id = r.rental_id
+);
+
 COMMIT;
-
-
-
---comments section
-
 /*
 Why a separate transaction is used
 
@@ -200,7 +222,7 @@ Inserting new rentals and payments
 
 Reason: If one subtask fails, it does not affect other subtasks. For example, if inserting actors fails, your films and inventory remain intact. This makes the script safe and modular.
 */
-
+ 
 
 /*What would happen if the transaction fails
 If any error occurs inside a BEGIN ... COMMIT block, all changes within that block are rolled back automatically.
@@ -240,5 +262,9 @@ Inventory: avoids duplicating inventory for the same film_id in the same store
 Rentals: avoids renting the same movie to the same customer on the same date
 Payments: avoids creating multiple payments for the same rental
 Using RETURNING allows you to capture IDs dynamically instead of hardcoding them, which further prevents mismatched inserts.*/
+
+/*Actors → film_actor: Actors are explicitly linked to films in this script using valid actor_id and film_id.*/
+    
+
 
 
