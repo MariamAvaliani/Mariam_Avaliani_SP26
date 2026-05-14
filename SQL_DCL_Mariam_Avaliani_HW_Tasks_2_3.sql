@@ -15,7 +15,7 @@ GRANT CONNECT ON DATABASE dvdrental TO rentaluser;
 SET ROLE rentaluser;
 
 -- Should fail because SELECT was not granted yet
-SELECT * FROM customer;
+SELECT * FROM public.customer;
 
 -- Expected:
 -- ERROR: permission denied for table customer
@@ -27,7 +27,7 @@ SELECT * FROM customer;
 
 RESET ROLE;
 
-GRANT SELECT ON TABLE customer TO rentaluser;
+GRANT SELECT ON TABLE public.customer TO rentaluser;
 
 
 -- =========================================================
@@ -36,7 +36,7 @@ GRANT SELECT ON TABLE customer TO rentaluser;
 
 SET ROLE rentaluser;
 
-SELECT * FROM customer;
+SELECT * FROM public.customer;
 
 -- Expected:
 -- Customers are returned successfully
@@ -59,10 +59,12 @@ GRANT rental TO rentaluser;
 -- TASK 2.6 Grant INSERT and UPDATE on rental table
 -- =========================================================
 
-GRANT INSERT, UPDATE ON TABLE rental TO rental;
+GRANT INSERT, UPDATE ON TABLE public.rental TO rental;
 
 -- Needed because rental_id uses sequence
-GRANT USAGE, SELECT ON SEQUENCE rental_rental_id_seq TO rental;
+GRANT USAGE, SELECT
+ON SEQUENCE public.rental_rental_id_seq
+TO rental;
 
 
 -- =========================================================
@@ -73,7 +75,7 @@ GRANT USAGE, SELECT ON SEQUENCE rental_rental_id_seq TO rental;
 
 SET ROLE rentaluser;
 
-INSERT INTO rental (
+INSERT INTO public.rental (
     rental_date,
     inventory_id,
     customer_id,
@@ -87,7 +89,7 @@ VALUES (
     -- dynamically get available inventory item
     (
         SELECT inventory_id
-        FROM inventory
+        FROM public.inventory
         ORDER BY inventory_id
         LIMIT 1
     ),
@@ -95,7 +97,7 @@ VALUES (
     -- dynamically get existing customer
     (
         SELECT customer_id
-        FROM customer
+        FROM public.customer
         ORDER BY customer_id
         LIMIT 1
     ),
@@ -105,7 +107,7 @@ VALUES (
     -- dynamically get existing staff
     (
         SELECT staff_id
-        FROM staff
+        FROM public.staff
         ORDER BY staff_id
         LIMIT 1
     ),
@@ -121,12 +123,12 @@ VALUES (
 -- TASK 2.8 Test UPDATE (should SUCCESS)
 -- =========================================================
 
-UPDATE rental
+UPDATE public.rental
 SET return_date = NOW(),
     last_update = NOW()
 WHERE rental_id = (
     SELECT rental_id
-    FROM rental
+    FROM public.rental
     ORDER BY rental_id
     LIMIT 1
 );
@@ -141,7 +143,7 @@ WHERE rental_id = (
 
 RESET ROLE;
 
-REVOKE INSERT ON TABLE rental FROM rental;
+REVOKE INSERT ON TABLE public.rental FROM rental;
 
 
 -- =========================================================
@@ -150,7 +152,7 @@ REVOKE INSERT ON TABLE rental FROM rental;
 
 SET ROLE rentaluser;
 
-INSERT INTO rental (
+INSERT INTO public.rental (
     rental_date,
     inventory_id,
     customer_id,
@@ -163,14 +165,14 @@ VALUES (
 
     (
         SELECT inventory_id
-        FROM inventory
+        FROM public.inventory
         ORDER BY inventory_id
         LIMIT 1
     ),
 
     (
         SELECT customer_id
-        FROM customer
+        FROM public.customer
         ORDER BY customer_id
         LIMIT 1
     ),
@@ -179,7 +181,7 @@ VALUES (
 
     (
         SELECT staff_id
-        FROM staff
+        FROM public.staff
         ORDER BY staff_id
         LIMIT 1
     ),
@@ -201,10 +203,10 @@ SELECT DISTINCT
     c.customer_id,
     c.first_name,
     c.last_name
-FROM customer c
-JOIN rental r
+FROM public.customer c
+JOIN public.rental r
     ON c.customer_id = r.customer_id
-JOIN payment p
+JOIN public.payment p
     ON c.customer_id = p.customer_id
 LIMIT 1;
 
@@ -228,20 +230,21 @@ CREATE ROLE client_tommy_collazo;
 -- TASK 2.13 Grant SELECT access
 -- =========================================================
 
-GRANT SELECT ON rental TO client_tommy_collazo;
-GRANT SELECT ON payment TO client_tommy_collazo;
+GRANT SELECT ON public.rental TO client_tommy_collazo;
+GRANT SELECT ON public.payment TO client_tommy_collazo;
 
 
 -- =========================================================
 -- TASK 2.14 Enable Row-Level Security (RLS)
 -- =========================================================
 
-ALTER TABLE rental ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rental ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS rental_policy_tommy ON rental;
+DROP POLICY IF EXISTS rental_policy_tommy
+ON public.rental;
 
 CREATE POLICY rental_policy_tommy
-ON rental
+ON public.rental
 FOR SELECT
 TO client_tommy_collazo
 USING (customer_id = 459);
@@ -254,7 +257,7 @@ USING (customer_id = 459);
 SET ROLE client_tommy_collazo;
 
 SELECT *
-FROM rental;
+FROM public.rental;
 
 -- Expected:
 -- Only rows where customer_id = 459 are visible
@@ -265,7 +268,7 @@ FROM rental;
 -- =========================================================
 
 SELECT *
-FROM rental
+FROM public.rental
 WHERE customer_id <> 459;
 
 -- Expected:
