@@ -30,13 +30,13 @@ SET search_path TO household_store;
 -- 1. PARENT TABLES
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS category (
+CREATE TABLE IF NOT EXISTS household_store.category (
     category_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     category_name VARCHAR(100) NOT NULL UNIQUE,
     description VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS supplier (
+CREATE TABLE IF NOT EXISTS household_store.supplier (
     supplier_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     supplier_name VARCHAR(150) NOT NULL,
     phone VARCHAR(20) NOT NULL UNIQUE,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS supplier (
     address VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS customer (
+CREATE TABLE IF NOT EXISTS household_store.customer (
     customer_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS customer (
     address VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS employee (
+CREATE TABLE IF NOT EXISTS household_store.employee (
     employee_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS employee (
 -- 2. CHILD TABLES
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS product (
+CREATE TABLE IF NOT EXISTS household_store.product (
     product_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     product_name VARCHAR(150) NOT NULL,
     brand VARCHAR(100) NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS product (
         ON UPDATE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE IF NOT EXISTS household_store.orders (
     order_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     customer_id INT NOT NULL,
     employee_id INT NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS orders (
         ON DELETE RESTRICT
 );
 
-CREATE TABLE IF NOT EXISTS order_item (
+CREATE TABLE IF NOT EXISTS household_store.order_item (
     order_id INT,
     product_id INT,
     quantity INT NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS order_item (
         ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS procurement (
+CREATE TABLE IF NOT EXISTS household_store.procurement (
     procurement_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     supplier_id INT NOT NULL,
     product_id INT NOT NULL,
@@ -158,17 +158,17 @@ CREATE TABLE IF NOT EXISTS procurement (
 -- PRODUCT TABLE CONSTRAINTS
 
 -- Price must be positive
-ALTER TABLE product
+ALTER TABLE household_store.product
 ADD CONSTRAINT chk_product_price_positive
 CHECK (price > 0);
 
 -- Stock cannot be negative
-ALTER TABLE product
+ALTER TABLE household_store.product
 ADD CONSTRAINT chk_product_stock_non_negative
 CHECK (stock_quantity >= 0);
 
 -- Warranty cannot be negative
-ALTER TABLE product
+ALTER TABLE household_store.product
 ADD CONSTRAINT chk_product_warranty_non_negative
 CHECK (warranty_months >= 0);
 
@@ -176,12 +176,12 @@ CHECK (warranty_months >= 0);
 -- ORDERS TABLE CONSTRAINTS
 
 -- Allowed order statuses only
-ALTER TABLE orders
+ALTER TABLE household_store.orders
 ADD CONSTRAINT chk_orders_status_valid
 CHECK (order_status IN ('Pending','Shipped','Delivered','Cancelled'));
 
 -- Orders must be after Jan 1, 2026
-ALTER TABLE orders
+ALTER TABLE household_store.orders
 ADD CONSTRAINT chk_orders_date_after_2026
 CHECK (order_date > DATE '2026-01-01');
 
@@ -189,7 +189,7 @@ CHECK (order_date > DATE '2026-01-01');
 -- EMPLOYEE TABLE CONSTRAINTS
 
 -- Salary must be positive
-ALTER TABLE employee
+ALTER TABLE household_store.employee
 ADD CONSTRAINT chk_employee_salary_positive
 CHECK (salary > 0);
 
@@ -197,12 +197,12 @@ CHECK (salary > 0);
 -- PROCUREMENT TABLE CONSTRAINTS
 
 -- Quantity must be positive
-ALTER TABLE procurement
+ALTER TABLE household_store.procurement
 ADD CONSTRAINT chk_procurement_quantity_positive
 CHECK (quantity > 0);
 
 -- Cost price must be positive
-ALTER TABLE procurement
+ALTER TABLE household_store.procurement
 ADD CONSTRAINT chk_procurement_cost_positive
 CHECK (cost_price > 0);
 
@@ -210,12 +210,12 @@ CHECK (cost_price > 0);
 -- ORDER_ITEM TABLE CONSTRAINTS
 
 -- Quantity must be positive
-ALTER TABLE order_item
+ALTER TABLE household_store.order_item
 ADD CONSTRAINT chk_orderitem_quantity_positive
 CHECK (quantity > 0);
 
 -- Unit price must be positive
-ALTER TABLE order_item
+ALTER TABLE household_store.order_item
 ADD CONSTRAINT chk_orderitem_price_positive
 CHECK (unit_price > 0);
 
@@ -241,7 +241,7 @@ SET search_path TO household_store;
 -- Dates: last 3 months
 -- =====================================================
 
-INSERT INTO store_management.category (category_name, description)
+INSERT INTO household_store.category (category_name, description)
 SELECT * FROM (VALUES
     ('Refrigerator', 'Cooling appliances'),
     ('Television', 'Smart TVs and displays'),
@@ -251,14 +251,14 @@ SELECT * FROM (VALUES
     ('Dishwasher', 'Automatic dish cleaning')
 ) AS v(category_name, description)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.category c WHERE c.category_name = v.category_name
+    SELECT 1 FROM household_store.category c WHERE c.category_name = v.category_name
 );
 
 -- =====================================================
 -- SUPPLIER (6 rows)
 -- =====================================================
 
-INSERT INTO store_management.supplier (supplier_name, phone, email, address)
+INSERT INTO household_store.supplier (supplier_name, phone, email, address)
 SELECT * FROM (VALUES
     ('LG Supplier', '555-1001', 'lg@supplier.com', 'Seoul'),
     ('Samsung Distributor', '555-1002', 'samsung@supplier.com', 'Busan'),
@@ -268,14 +268,14 @@ SELECT * FROM (VALUES
     ('Philips Supply', '555-1006', 'philips@supplier.com', 'Amsterdam')
 ) AS v(name, phone, email, address)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.supplier s WHERE s.phone = v.phone
+    SELECT 1 FROM household_store.supplier s WHERE s.phone = v.phone
 );
 
 -- =====================================================
 -- CUSTOMER (6 rows)
 -- =====================================================
 
-INSERT INTO store_management.customer (first_name, last_name, phone, email, address)
+INSERT INTO household_store.customer (first_name, last_name, phone, email, address)
 SELECT * FROM (VALUES
     ('John','Doe','555-2001','john@email.com','Tbilisi'),
     ('Anna','Smith','555-2002','anna@email.com','Kutaisi'),
@@ -285,14 +285,14 @@ SELECT * FROM (VALUES
     ('Luka','Mchedlidze','555-2006','luka@email.com','Zugdidi')
 ) AS v(fn, ln, phone, email, address)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.customer c WHERE c.phone = v.phone
+    SELECT 1 FROM household_store.customer c WHERE c.phone = v.phone
 );
 
 -- =====================================================
 -- EMPLOYEE (6 rows)
 -- =====================================================
 
-INSERT INTO store_management.employee (first_name, last_name, position, salary, hire_date, phone)
+INSERT INTO household_store.employee (first_name, last_name, position, salary, hire_date, phone)
 SELECT * FROM (VALUES
     ('Mariam','K','Manager',3000,CURRENT_DATE - INTERVAL '1 year','555-3001'),
     ('Giorgi','L','Sales',1800,CURRENT_DATE - INTERVAL '8 months','555-3002'),
@@ -302,91 +302,91 @@ SELECT * FROM (VALUES
     ('Tamar','Z','Sales',1900,CURRENT_DATE - INTERVAL '3 months','555-3006')
 ) AS v(fn, ln, pos, salary, hire, phone)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.employee e WHERE e.phone = v.phone
+    SELECT 1 FROM household_store.employee e WHERE e.phone = v.phone
 );
 
 -- =====================================================
 -- PRODUCT (6 rows)
 -- =====================================================
 
-INSERT INTO store_management.product (product_name, brand, model, category_id, price, stock_quantity, warranty_months)
+INSERT INTO household_store.product (product_name, brand, model, category_id, price, stock_quantity, warranty_months)
 SELECT * FROM (
 VALUES
 ('LG Fridge','LG','F100',
- (SELECT category_id FROM store_management.category WHERE category_name='Refrigerator'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Refrigerator'),
  1200,10,24),
 
 ('Samsung TV','Samsung','TV200',
- (SELECT category_id FROM store_management.category WHERE category_name='Television'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Television'),
  900,15,24),
 
 ('Bosch Washer','Bosch','W300',
- (SELECT category_id FROM store_management.category WHERE category_name='Washing Machine'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Washing Machine'),
  800,8,36),
 
 ('Panasonic AC','Panasonic','AC400',
- (SELECT category_id FROM store_management.category WHERE category_name='Air Conditioner'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Air Conditioner'),
  1500,5,24),
 
 ('Philips Microwave','Philips','M500',
- (SELECT category_id FROM store_management.category WHERE category_name='Microwave'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Microwave'),
  300,20,12),
 
 ('Whirlpool Dishwasher','Whirlpool','D600',
- (SELECT category_id FROM store_management.category WHERE category_name='Dishwasher'),
+ (SELECT category_id FROM household_store.category WHERE category_name='Dishwasher'),
  700,7,24)
 
 ) AS v(name, brand, model, cat_id, price, stock, warranty)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.product p WHERE p.product_name = v.name
+    SELECT 1 FROM household_store.product p WHERE p.product_name = v.name
 );
 
 -- =====================================================
 -- ORDERS (6 rows, last 3 months)
 -- =====================================================
 
-INSERT INTO store_management.orders (customer_id, employee_id, order_date, order_status)
+INSERT INTO household_store.orders (customer_id, employee_id, order_date, order_status)
 SELECT * FROM (
 VALUES
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2001'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3002'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2001'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3002'),
  CURRENT_DATE - INTERVAL '10 days',
  'Delivered'
 ),
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2002'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3003'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2002'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3003'),
  CURRENT_DATE - INTERVAL '20 days',
  'Shipped'
 ),
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2003'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3004'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2003'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3004'),
  CURRENT_DATE - INTERVAL '1 month',
  'Pending'
 ),
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2004'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2004'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '2 months',
  'Delivered'
 ),
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2005'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3006'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2005'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3006'),
  CURRENT_DATE - INTERVAL '15 days',
  'Cancelled'
 ),
 (
- (SELECT customer_id FROM store_management.customer WHERE phone='555-2006'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3002'),
+ (SELECT customer_id FROM household_store.customer WHERE phone='555-2006'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3002'),
  CURRENT_DATE - INTERVAL '5 days',
  'Pending'
 )
 ) AS v(cust, emp, order_date, status)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.orders o 
+    SELECT 1 FROM household_store.orders o 
     WHERE o.customer_id = v.cust 
     AND o.order_date = v.order_date
 );
@@ -395,16 +395,16 @@ WHERE NOT EXISTS (
 -- ORDER_ITEM (6+ rows)
 -- =====================================================
 
-INSERT INTO store_management.order_item (order_id, product_id, quantity, unit_price)
+INSERT INTO household_store.order_item (order_id, product_id, quantity, unit_price)
 SELECT 
     o.order_id,
     p.product_id,
     2,
     p.price
-FROM store_management.orders o
-JOIN store_management.product p ON p.product_name IN ('LG Fridge','Samsung TV')
+FROM household_store.orders o
+JOIN household_store.product p ON p.product_name IN ('LG Fridge','Samsung TV')
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.order_item oi 
+    SELECT 1 FROM household_store.order_item oi 
     WHERE oi.order_id = o.order_id AND oi.product_id = p.product_id
 )
 LIMIT 6;
@@ -413,54 +413,54 @@ LIMIT 6;
 -- PROCUREMENT (6 rows)
 -- =====================================================
 
-INSERT INTO store_management.procurement (supplier_id, product_id, employee_id, procurement_date, quantity, cost_price)
+INSERT INTO household_store.procurement (supplier_id, product_id, employee_id, procurement_date, quantity, cost_price)
 SELECT * FROM (
 VALUES
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1001'),
- (SELECT product_id FROM store_management.product WHERE product_name='LG Fridge'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1001'),
+ (SELECT product_id FROM household_store.product WHERE product_name='LG Fridge'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '1 month',
  10,800
 ),
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1002'),
- (SELECT product_id FROM store_management.product WHERE product_name='Samsung TV'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1002'),
+ (SELECT product_id FROM household_store.product WHERE product_name='Samsung TV'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '2 months',
  12,600
 ),
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1003'),
- (SELECT product_id FROM store_management.product WHERE product_name='Bosch Washer'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1003'),
+ (SELECT product_id FROM household_store.product WHERE product_name='Bosch Washer'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '3 weeks',
  5,500
 ),
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1004'),
- (SELECT product_id FROM store_management.product WHERE product_name='Whirlpool Dishwasher'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1004'),
+ (SELECT product_id FROM household_store.product WHERE product_name='Whirlpool Dishwasher'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '2 weeks',
  6,450
 ),
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1005'),
- (SELECT product_id FROM store_management.product WHERE product_name='Panasonic AC'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1005'),
+ (SELECT product_id FROM household_store.product WHERE product_name='Panasonic AC'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '10 days',
  4,1000
 ),
 (
- (SELECT supplier_id FROM store_management.supplier WHERE phone='555-1006'),
- (SELECT product_id FROM store_management.product WHERE product_name='Philips Microwave'),
- (SELECT employee_id FROM store_management.employee WHERE phone='555-3005'),
+ (SELECT supplier_id FROM household_store.supplier WHERE phone='555-1006'),
+ (SELECT product_id FROM household_store.product WHERE product_name='Philips Microwave'),
+ (SELECT employee_id FROM household_store.employee WHERE phone='555-3005'),
  CURRENT_DATE - INTERVAL '5 days',
  15,200
 )
 ) AS v(sup, prod, emp, procurement_date, qty, cost)
 WHERE NOT EXISTS (
-    SELECT 1 FROM store_management.procurement pr
+    SELECT 1 FROM household_store.procurement pr
     WHERE pr.product_id = v.prod 
     AND pr.procurement_date = v.procurement_date
 );
@@ -537,7 +537,7 @@ SELECT update_product_column(1, 'product_name', 'Updated Name');
 SELECT update_product_column(1, 'price', '1999.99');
 
 
-select * from store_management.product;
+select * from household_store.product;
 
 -- =====================================================
 -- Function: create_order_transaction
@@ -546,120 +546,63 @@ select * from store_management.product;
 -- using natural keys (phone, product name)
 -- =====================================================
 
+-- =========================================================
+-- FIXED FUNCTION (IMPORTANT FIX: STRONG DUPLICATE CHECK)
+-- =========================================================
+
 CREATE OR REPLACE FUNCTION household_store.create_order_transaction(
-    p_customer_phone TEXT,          -- Natural key for customer
-    p_employee_phone TEXT,          -- Natural key for employee
-    p_product_name TEXT,            -- Natural key for product
-    p_quantity INT,                 -- Quantity of product
-    p_order_status TEXT DEFAULT 'Pending'  -- Default order status
+    p_customer_phone TEXT,
+    p_employee_phone TEXT,
+    p_product_name TEXT,
+    p_quantity INT,
+    p_order_status TEXT DEFAULT 'Pending'
 )
 RETURNS VOID AS
 $$
 DECLARE
-    v_customer_id INT;     -- Resolved customer ID
-    v_employee_id INT;     -- Resolved employee ID
-    v_product_id INT;      -- Resolved product ID
-    v_order_id INT;        -- Newly created order ID
-    v_price NUMERIC(10,2); -- Product price
+    v_customer_id INT;
+    v_employee_id INT;
+    v_product_id INT;
+    v_price NUMERIC(10,2);
+    v_order_id INT;
+    v_duplicate INT;
 BEGIN
 
-    -- =====================================================
-    -- 1. Resolve natural keys into surrogate keys
-    -- =====================================================
-
     SELECT customer_id INTO v_customer_id
-    FROM household_store.customer
-    WHERE phone = p_customer_phone;
+    FROM household_store.customer WHERE phone = p_customer_phone;
 
     SELECT employee_id INTO v_employee_id
-    FROM household_store.employee
-    WHERE phone = p_employee_phone;
+    FROM household_store.employee WHERE phone = p_employee_phone;
 
     SELECT product_id, price INTO v_product_id, v_price
-    FROM household_store.product
-    WHERE product_name = p_product_name;
+    FROM household_store.product WHERE product_name = p_product_name;
 
-    -- Debug output (helps verify values during execution)
-    RAISE NOTICE 'Resolved IDs → Customer: %, Employee: %, Product: %',
-        v_customer_id, v_employee_id, v_product_id;
-
-    -- =====================================================
-    -- 2. Validate that all required entities exist
-    -- =====================================================
-
-    IF v_customer_id IS NULL THEN
-        RAISE EXCEPTION 'Customer not found for phone: %', p_customer_phone;
+    IF v_customer_id IS NULL OR v_employee_id IS NULL OR v_product_id IS NULL THEN
+        RAISE EXCEPTION 'Invalid input data';
     END IF;
 
-    IF v_employee_id IS NULL THEN
-        RAISE EXCEPTION 'Employee not found for phone: %', p_employee_phone;
+    --  FIXED: stronger duplicate prevention
+    SELECT o.order_id INTO v_duplicate
+    FROM household_store.orders o
+    JOIN household_store.order_item oi ON o.order_id = oi.order_id
+    WHERE o.customer_id = v_customer_id
+      AND oi.product_id = v_product_id
+      AND o.order_date = CURRENT_DATE
+    LIMIT 1;
+
+    IF v_duplicate IS NOT NULL THEN
+        RAISE EXCEPTION 'Duplicate order detected (same customer + product + date)';
     END IF;
 
-    IF v_product_id IS NULL THEN
-        RAISE EXCEPTION 'Product not found: %', p_product_name;
-    END IF;
-
-    -- =====================================================
-    -- 3. Insert into ORDERS table
-    -- Note: order_id is auto-generated (IDENTITY)
-    -- =====================================================
-
-    INSERT INTO household_store.orders (
-        customer_id,
-        employee_id,
-        order_date,
-        order_status
-    )
-    VALUES (
-        v_customer_id,
-        v_employee_id,
-        CURRENT_DATE,       -- Uses current date (last 3 months requirement satisfied)
-        p_order_status
-    )
+    INSERT INTO household_store.orders(customer_id, employee_id, order_date, order_status)
+    VALUES (v_customer_id, v_employee_id, CURRENT_DATE, p_order_status)
     RETURNING order_id INTO v_order_id;
 
-    -- =====================================================
-    -- 4. Insert into ORDER_ITEM table (M:N relationship)
-    -- =====================================================
-
-    INSERT INTO household_store.order_item (
-        order_id,
-        product_id,
-        quantity,
-        unit_price
-    )
-    VALUES (
-        v_order_id,
-        v_product_id,
-        p_quantity,
-        v_price
-    );
-
-    -- =====================================================
-    -- 5. Confirmation message
-    -- =====================================================
-
-    RAISE NOTICE 'Order successfully created. Order ID: %', v_order_id;
+    INSERT INTO household_store.order_item(order_id, product_id, quantity, unit_price)
+    VALUES (v_order_id, v_product_id, p_quantity, v_price);
 
 END;
 $$ LANGUAGE plpgsql;
-
-
-
-SET search_path TO household_store;
-
-SELECT create_order_transaction(
-    '555-2001',   -- customer phone
-    '555-3002',   -- employee phone
-    'LG Fridge',  -- product
-    2             -- quantity
-);
-
-
-SELECT * 
-FROM household_store.orders
-ORDER BY order_id DESC;
-
 
 -- =====================================================
 -- View: recent_quarter_sales
