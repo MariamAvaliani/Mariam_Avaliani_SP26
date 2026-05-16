@@ -65,6 +65,10 @@ FROM ranked_customers
 WHERE rnk <= 5
 ORDER BY channel_desc, total_sales DESC;
 
+
+
+
+
 /*task 2*/
 /*
 We use crosstab(text, text) as defined in PostgreSQL documentation.
@@ -187,150 +191,264 @@ AS ct (
 ORDER BY year_sum DESC;
 
 
-/*task 3*/
-/*
-We avoid window functions completely (requirement).
-Instead we:
-1. compute total sales per customer per year per channel
-2. find top 300 customers using ORDER BY + LIMIT logic
-3. join back to original data for final reporting
+
+
+
+	/* =========================
+   TASK 3 — UPDATED VERSION
+   =========================
+
+Goal:
+- Find customers who ranked in the TOP 300
+  for EACH year:
+      1998, 1999, 2001
+
+- Categorize results by sales channel
+
+- Include only purchases made in the
+  corresponding channel
+
+- Use window functions
+
+- Format total sales with 2 decimals
+*/
+/* =========================
+   TASK 3
+   =========================
+
+Goal:
+- Find TOP 300 customers based on TOTAL sales
+  across the years:
+      1998, 1999, 2001
+
+- Customers are ranked using the COMBINED
+  sales of these years together
+  (NOT separately per year)
+
+- After selecting TOP 300 customers,
+  show their sales categorized by channel
+
+- Include only purchases made through
+  the corresponding channel
+
+- Use window functions
+
+- Format sales with 2 decimal places
 */
 
-WITH base_sales AS (
-    /*
-    Step 1: raw sales aggregated per customer, channel, year
-    */
+WITH customer_channel_sales AS (
+
+    /*---------------------------------
+      Step 1:
+      Calculate sales per customer
+      per channel for required years
+    ----------------------------------*/
     SELECT
         s.cust_id,
-        c.cust_last_name,
         c.cust_first_name,
+        c.cust_last_name,
         ch.channel_desc,
-        t.calendar_year,
-        SUM(s.amount_sold) AS amount_sold
+
+        SUM(s.amount_sold) AS channel_sales
+
     FROM sh.sales s
-    JOIN sh.customers c ON s.cust_id = c.cust_id
-    JOIN sh.channels ch ON s.channel_id = ch.channel_id
-    JOIN sh.times t ON s.time_id = t.time_id
+
+    JOIN sh.customers c
+        ON s.cust_id = c.cust_id
+
+    JOIN sh.channels ch
+        ON s.channel_id = ch.channel_id
+
+    JOIN sh.times t
+        ON s.time_id = t.time_id
+
     WHERE t.calendar_year IN (1998, 1999, 2001)
+
     GROUP BY
         s.cust_id,
-        c.cust_last_name,
         c.cust_first_name,
-        ch.channel_desc,
-        t.calendar_year
+        c.cust_last_name,
+        ch.channel_desc
 ),
 
-top_customers AS (
-    /*
-    Step 2: select TOP 300 customers per year based on total sales
-    (no window functions → we use aggregation + ordering trick)
-    */
-    SELECT DISTINCT cust_id, calendar_year
-    FROM (
-        SELECT
-            cust_id,
-            calendar_year,
-            SUM(amount_sold) AS total_year_sales
-        FROM base_sales
-        GROUP BY cust_id, calendar_year
-        ORDER BY total_year_sales DESC
-        LIMIT 300
-    ) ranked
+customer_total_sales AS (
+
+    /*---------------------------------
+      Step 2:
+      Calculate TOTAL sales per customer
+      across all channels and years
+    ----------------------------------*/
+    SELECT
+        cust_id,
+
+        SUM(channel_sales) AS total_sales
+
+    FROM customer_channel_sales
+
+    GROUP BY cust_id
+),
+
+ranked_customers AS (
+
+    /*---------------------------------
+      Step 3:
+      Rank customers by total sales
+
+      Highest sales = rank 1
+    ----------------------------------*/
+    SELECT
+        cust_id,
+        total_sales,
+
+        RANK() OVER (
+            ORDER BY total_sales DESC
+        ) AS sales_rank
+
+    FROM customer_total_sales
 )
 
--- Step 3: final report
+-- ===================================
+-- Final Report
+-- ===================================
+
 SELECT
-    b.channel_desc,
-    b.cust_id,
-    b.cust_last_name,
-    b.cust_first_name,
+    ccs.channel_desc,
+    ccs.cust_id,
+    ccs.cust_first_name,
+    ccs.cust_last_name,
 
-    -- formatted sales per channel
-    TO_CHAR(SUM(b.amount_sold), 'FM999999999.00') AS amount_sold
+    /*
+      Show sales only for the
+      corresponding channel
+    */
+    TO_CHAR(
+        ccs.channel_sales,
+        'FM999999999.00'
+    ) AS amount_sold
 
-FROM base_sales b
-JOIN top_customers tc
-    ON b.cust_id = tc.cust_id
-    AND b.calendar_year = tc.calendar_year
+FROM customer_channel_sales ccs
 
-GROUP BY
-    b.channel_desc,
-    b.cust_id,
-    b.cust_last_name,
-    b.cust_first_name
+JOIN ranked_customers rc
+    ON ccs.cust_id = rc.cust_id
+
+/*
+  Keep only TOP 300 customers
+*/
+WHERE rc.sales_rank <= 300
 
 ORDER BY
-    b.channel_desc,
-    amount_sold DESC;
+    ccs.channel_desc,
+    ccs.channel_sales DESC;
 
 
-/*task 4*/
-/*
+
+/* =========================
+   TASK 4 — WINDOW FUNCTION 
+   =========================
+
 Goal:
-- Months: Jan, Feb, Mar 2000
-- Regions: Europe + Americas
-- Group by: month + product category
-- Pivot regions into columns (Americas, Europe)
+- Generate sales report for:
+    January, February, March 2000
+- Regions:
+    Europe and Americas
+- Display results:
+    by month and product category
+- Sort alphabetically
+- Use window functions
+- No crosstab needed
 
-We use crosstab because we need:
-row → month + category
-columns → regions
-values → sales
+Approach:
+- Use conditional aggregation with
+  window functions
+- Calculate regional sales separately
+  for Americas and Europe
 */
+
+WITH sales_data AS (
+
+    /*---------------------------------
+      Step 1:
+      Collect sales data
+    ----------------------------------*/
+    SELECT
+        t.calendar_month_desc,
+        p.prod_category,
+        co.country_region,
+        s.amount_sold
+
+    FROM sh.sales s
+
+    JOIN sh.products p
+        ON s.prod_id = p.prod_id
+
+    JOIN sh.customers c
+        ON s.cust_id = c.cust_id
+
+    JOIN sh.countries co
+        ON c.country_id = co.country_id
+
+    JOIN sh.times t
+        ON s.time_id = t.time_id
+
+    WHERE
+        t.calendar_year = 2000
+        AND t.calendar_month_number IN (1,2,3)
+        AND co.country_region IN ('Americas', 'Europe')
+),
+
+regional_sales AS (
+
+    /*---------------------------------
+      Step 2:
+      Calculate sales per region using
+      window functions
+    ----------------------------------*/
+    SELECT DISTINCT
+        calendar_month_desc,
+        prod_category,
+
+        SUM(
+            CASE
+                WHEN country_region = 'Americas'
+                THEN amount_sold
+                ELSE 0
+            END
+        ) OVER (
+            PARTITION BY
+                calendar_month_desc,
+                prod_category
+        ) AS "Americas SALES",
+
+        SUM(
+            CASE
+                WHEN country_region = 'Europe'
+                THEN amount_sold
+                ELSE 0
+            END
+        ) OVER (
+            PARTITION BY
+                calendar_month_desc,
+                prod_category
+        ) AS "Europe SALES"
+
+    FROM sales_data
+)
+
+-- ===================================
+-- Final Report
+-- ===================================
 
 SELECT
     calendar_month_desc,
     prod_category,
 
-    COALESCE("Americas", 0) AS "Americas SALES",
-    COALESCE("Europe", 0) AS "Europe SALES"
+    ROUND("Americas SALES", 2)
+        AS "Americas SALES",
 
-FROM crosstab(
+    ROUND("Europe SALES", 2)
+        AS "Europe SALES"
 
-$$
-/*
-SOURCE QUERY:
-Must return 3 columns:
-1) row identifier (month + category)
-2) category (region)
-3) value (sales)
-*/
-SELECT
-    t.calendar_month_desc AS row_name,
-    p.prod_category,
-    co.country_region AS region,
-    SUM(s.amount_sold) AS sales
-
-FROM sh.sales s
-JOIN sh.products p ON s.prod_id = p.prod_id
-JOIN sh.customers c ON s.cust_id = c.cust_id
-JOIN sh.countries co ON c.country_id = co.country_id
-JOIN sh.times t ON s.time_id = t.time_id
-
-WHERE
-    t.calendar_year = 2000
-    AND t.calendar_month_number IN (1,2,3)
-    AND co.country_region IN ('Americas', 'Europe')
-
-GROUP BY
-    t.calendar_month_desc,
-    p.prod_category,
-    co.country_region
-
-ORDER BY 1,2,3
-$$,
-
-$$
--- CATEGORY QUERY defines output columns order
-SELECT unnest(ARRAY['Americas','Europe'])
-$$
-
-) AS ct (
-    calendar_month_desc TEXT,
-    prod_category TEXT,
-    "Americas" NUMERIC,
-    "Europe" NUMERIC
-)
+FROM regional_sales
 
 ORDER BY
     calendar_month_desc ASC,
