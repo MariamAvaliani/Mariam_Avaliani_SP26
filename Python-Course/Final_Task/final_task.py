@@ -3,6 +3,8 @@ Module for preparing inverted indexes based on uploaded documents
 """
 
 import sys
+import json
+import re
 from argparse import ArgumentParser, ArgumentTypeError, FileType
 from io import TextIOWrapper
 from typing import Dict, List
@@ -14,7 +16,6 @@ class EncodedFileType(FileType):
     """File encoder"""
 
     def __call__(self, string):
-        # the special argument "-" means sys.std{in,out}
         if string == "-":
             if "r" in self._mode:
                 stdin = TextIOWrapper(sys.stdin.buffer, encoding=self._encoding)
@@ -25,7 +26,6 @@ class EncodedFileType(FileType):
             msg = 'argument "-" with mode %r' % self._mode
             raise ValueError(msg)
 
-        # all other arguments are used as file names
         try:
             return open(string, self._mode, self._bufsize, self._encoding, self._errors)
         except OSError as exception:
@@ -44,11 +44,22 @@ class InvertedIndex:
     """
 
     def __init__(self, words_ids: Dict[str, List[int]]):
-        pass
+        self.words_ids = words_ids
 
     def query(self, words: List[str]) -> List[int]:
         """Return the list of relevant documents for the given query"""
-        pass
+        if not words:
+            return []
+
+        doc_lists = []
+        for word in words:
+            word_lower = word.lower()
+            if word_lower not in self.words_ids:
+                return []
+            doc_lists.append(set(self.words_ids[word_lower]))
+
+        result = set.intersection(*doc_lists) if doc_lists else set()
+        return sorted(list(result))
 
     def dump(self, filepath: str) -> None:
         """
@@ -56,7 +67,8 @@ class InvertedIndex:
         :param filepath: path to file with documents
         :return: None
         """
-        pass
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(self.words_ids, f, ensure_ascii=False, indent=2)
 
     @classmethod
     def load(cls, filepath: str):
@@ -65,16 +77,28 @@ class InvertedIndex:
         :param filepath: path to file with documents
         :return: InvertedIndex
         """
-        pass
+        with open(filepath, 'r', encoding='utf-8') as f:
+            words_ids = json.load(f)
+        return cls(words_ids)
 
 
 def load_documents(filepath: str) -> Dict[int, str]:
     """
-    Allow us to upload documents from either tempopary directory or local storage
+    Allow us to upload documents from either temporary directory or local storage
     :param filepath: path to file with documents
     :return: Dict[int, str]
     """
-    pass
+    documents = {}
+    with open(filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            parts = line.split('\t', 1)
+            if len(parts) == 2:
+                doc_id = int(parts[0].strip())
+                content = parts[1].strip()
+                documents[doc_id] = content
+    return documents
 
 
 def build_inverted_index(documents: Dict[int, str]) -> InvertedIndex:
@@ -83,19 +107,33 @@ def build_inverted_index(documents: Dict[int, str]) -> InvertedIndex:
     :param documents: dict with documents
     :return: InvertedIndex class
     """
-    pass
+    words_ids = {}
+
+    for doc_id, content in documents.items():
+        content_lower = content.lower()
+        words = re.split(r"\W+", content_lower)
+
+        unique_words = set(words)
+        for word in unique_words:
+            if word:
+                if word not in words_ids:
+                    words_ids[word] = []
+                words_ids[word].append(doc_id)
+
+    return InvertedIndex(words_ids)
 
 
 def callback_build(arguments) -> None:
     """process build runner"""
-    return process_build(arguments.dataset, arguments.output)
+    process_build(arguments.dataset, arguments.output)
 
 
 def process_build(dataset, output) -> None:
     """
     Function is responsible for running of a pipeline to load documents,
     build and save inverted index.
-    :param arguments: key/value pairs of arguments from 'build' subparser
+    :param dataset: path to dataset file
+    :param output: path to save inverted index
     :return: None
     """
     documents: Dict[int, str] = load_documents(dataset)
@@ -104,25 +142,41 @@ def process_build(dataset, output) -> None:
 
 
 def callback_query(arguments) -> None:
-    """ "callback query runner"""
+    """callback query runner"""
     process_query(arguments.query, arguments.index)
 
 
 def process_query(queries, index) -> None:
     """
     Function is responsible for loading inverted indexes
-    and printing document indexes for key words from arguments.query
-    :param arguments: key/value pairs of arguments from 'query' subparser
+    and printing document indexes for keywords from arguments.query
+    :param queries: list of query strings or file object
+    :param index: path to inverted index file
     :return: None
     """
     inverted_index = InvertedIndex.load(index)
-    for query in queries:
-        print(query[0])
-        if isinstance(query, str):
-            query = query.strip().split()
 
-        doc_indexes = ",".join(str(value) for value in inverted_index.query(query))
-        print(doc_indexes)
+    if hasattr(queries, 'read'):  # If it's a file object
+        for line in queries:
+            line = line.strip()
+            if not line:
+                continue
+            query_words = line.split()
+            print(line)
+            doc_indexes = ",".join(str(value) for value in inverted_index.query(query_words))
+            print(doc_indexes)
+    else:  # If it's a list of queries
+        for query in queries:
+            if isinstance(query, list):
+                query_str = " ".join(query)
+                print(query_str)
+                doc_indexes = ",".join(str(value) for value in inverted_index.query(query))
+                print(doc_indexes)
+            else:
+                print(query)
+                query_words = query.strip().split()
+                doc_indexes = ",".join(str(value) for value in inverted_index.query(query_words))
+                print(doc_indexes)
 
 
 def setup_subparsers(parser) -> None:
@@ -131,23 +185,24 @@ def setup_subparsers(parser) -> None:
     :param parser: Instance of ArgumentParser
     """
     subparser = parser.add_subparsers(dest="command")
+
     build_parser = subparser.add_parser(
         "build",
         help="this parser is need to load, build"
-        " and save inverted index bases on documents",
+             " and save inverted index bases on documents",
     )
     build_parser.add_argument(
         "-d",
         "--dataset",
         required=True,
-        help="You should specify path to file with documents. ",
+        help="You should specify path to file with documents.",
     )
     build_parser.add_argument(
         "-o",
         "--output",
         default=DEFAULT_PATH_TO_STORE_INVERTED_INDEX,
         help="You should specify path to save inverted index. "
-        "The default: %(default)s",
+             "The default: %(default)s",
     )
     build_parser.set_defaults(callback=callback_build)
 
@@ -157,7 +212,7 @@ def setup_subparsers(parser) -> None:
     query_parser.add_argument(
         "--index",
         default=DEFAULT_PATH_TO_STORE_INVERTED_INDEX,
-        help="specify the path where inverted indexes are. " "The default: %(default)s",
+        help="specify the path where inverted indexes are. The default: %(default)s",
     )
     query_file_group = query_parser.add_mutually_exclusive_group(required=True)
     query_file_group.add_argument(
@@ -172,7 +227,6 @@ def setup_subparsers(parser) -> None:
         "--query_from_file",
         dest="query",
         type=EncodedFileType("r", encoding="utf-8"),
-        # default=TextIOWrapper(sys.stdin.buffer, encoding='utf-8'),
         help="query file to get queries for inverted index",
     )
     query_parser.set_defaults(callback=callback_query)
@@ -184,11 +238,15 @@ def main():
     """
     parser = ArgumentParser(
         description="Inverted Index CLI is need to load, build,"
-        "process query inverted index"
+                    "process query inverted index"
     )
     setup_subparsers(parser)
     arguments = parser.parse_args()
-    arguments.callback(arguments)
+
+    if hasattr(arguments, 'callback'):
+        arguments.callback(arguments)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":
