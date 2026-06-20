@@ -1,3 +1,4 @@
+
 """
 Module for preparing inverted indexes based on uploaded documents
 """
@@ -54,7 +55,7 @@ class InvertedIndex:
             doc_sets.append(set(self.words_ids[word_lower]))
 
         result = set.intersection(*doc_sets) if doc_sets else set()
-        return sorted(result)   #  FIXED
+        return sorted(result)   # FIXED
 
     def dump(self, filepath: str) -> None:
         """Save inverted index to file"""
