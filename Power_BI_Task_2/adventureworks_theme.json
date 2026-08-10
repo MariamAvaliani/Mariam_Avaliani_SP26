@@ -1,0 +1,51 @@
+{
+  "name": "AdventureWorks Sales Analytics",
+  "dataColors": [
+    "#19375A",
+    "#1A8D8F",
+    "#E67E22",
+    "#5B84A8",
+    "#63B8B9",
+    "#F0A860",
+    "#2C4C6E",
+    "#0F5C5D"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#19375A",
+  "tableAccent": "#1A8D8F",
+  "good": "#1A8D8F",
+  "neutral": "#E67E22",
+  "bad": "#B94A48",
+  "maximum": "#19375A",
+  "center": "#1A8D8F",
+  "minimum": "#F0A860",
+  "null": "#BFBFBF",
+  "textClasses": {
+    "callout": {
+      "color": "#19375A"
+    },
+    "title": {
+      "color": "#19375A",
+      "fontFace": "Segoe UI Bold"
+    },
+    "label": {
+      "color": "#333333"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "title": [
+          {
+            "fontColor": {
+              "solid": {
+                "color": "#19375A"
+              }
+            },
+            "fontSize": 14
+          }
+        ]
+      }
+    }
+  }
+}
