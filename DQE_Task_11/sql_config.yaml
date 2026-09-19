@@ -1,0 +1,28 @@
+tests:
+  # --- smoke: does the object exist at all? ---
+  - name: table_exists_dwh_clients
+    type: smoke
+    sql: "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'dwh' AND table_name = 'dwh_clients'"
+    expected: 1
+  - name: table_exists_dwh_products
+    type: smoke
+    sql: "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'dwh' AND table_name = 'dwh_products'"
+    expected: 1
+  - name: table_exists_dm_main_dashboard
+    type: smoke
+    sql: "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'dm' AND table_name = 'dm_main_dashboard'"
+    expected: 1
+
+  # --- critical: is the data in the object actually correct/healthy? ---
+  - name: dwh_clients_is_not_empty
+    type: critical
+    sql: "SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM dwh.dwh_clients"
+    expected: 1
+  - name: dwh_products_has_no_null_product_id
+    type: critical
+    sql: "SELECT COUNT(*) FROM dwh.dwh_products WHERE product_id IS NULL"
+    expected: 0
+  - name: dm_main_dashboard_has_no_duplicate_ids
+    type: critical
+    sql: "SELECT COUNT(*) - COUNT(DISTINCT id) FROM dm.dm_main_dashboard"
+    expected: 0
