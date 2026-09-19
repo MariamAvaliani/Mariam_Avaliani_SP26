@@ -12,7 +12,7 @@ def track_suite_time():
     after the last test - regardless of how many tests are in the file.
     """
     suite_start = time.time()
-    print(f"\n[SUITE] started")
+    print("\n[SUITE] started")
     yield
     suite_end = time.time()
     print(f"\n[SUITE] finished. Total suite execution time: {suite_end - suite_start:.2f} sec")
@@ -41,14 +41,14 @@ def test_add_two_positive_numbers(track_test_time):
     a, b = 3, 5
     result = add_numbers(a, b)
     time.sleep(2)
-    assert result == 8
+    assert result == 8, f"add_numbers({a}, {b}) returned {result}, expected 8"
 
 
 def test_add_two_negative_numbers(track_test_time):
     a, b = -3, -5
     result = add_numbers(a, b)
     time.sleep(3)
-    assert result == -8
+    assert result == -8, f"add_numbers({a}, {b}) returned {result}, expected -8"
 
 
 def test_add_negative_and_positive_numbers():
@@ -56,4 +56,4 @@ def test_add_negative_and_positive_numbers():
     a, b = -3, 5
     result = add_numbers(a, b)
     time.sleep(10)
-    assert result == 2
+    assert result == 2, f"add_numbers({a}, {b}) returned {result}, expected 2"
