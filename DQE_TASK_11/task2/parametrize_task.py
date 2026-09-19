@@ -27,11 +27,13 @@ cases = get_numbers_data("config.yaml")
 def test_add_numbers(numbers, expected):
     a, b, c = numbers
     result = add_numbers(a, b, c)
-    assert result == expected
+    assert result == expected, (
+        f"add_numbers({a}, {b}, {c}) returned {result}, expected {expected}"
+    )
 
 
 @pytest.mark.critical
 def test_add_invalid_types():
     # 'a' is not numeric -> add_numbers must raise a TypeError, not silently fail
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="must be numeric"):
         add_numbers("a", 2, 1)
