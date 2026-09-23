@@ -1,0 +1,13 @@
+# Input/expected cases for Tests/test_add_numbers.py (parametrize task).
+# Same content as your original config.yaml, just moved into Configs/ so
+# every config file lives in one place, matching the DQE_LAB_2024 skeleton.
+cases:
+  - case_name: positive
+    input: [2, 10, 99]
+    expected: 111
+  - case_name: negative
+    input: [-1, -19, -100]
+    expected: -120
+  - case_name: mixed
+    input: [99, -99, 0]
+    expected: 0
