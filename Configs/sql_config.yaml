@@ -1,0 +1,37 @@
+# SQL check definitions for Tests/test_db_tables.py (DWH testing, from Task 6).
+#
+# IMPORTANT FOR MARIAM: this file is a RECONSTRUCTION. You did not have your
+# original config/sql_config.yaml on hand when we built this framework, so
+# these queries were rebuilt from: the 6 case names your test_db_tables.py
+# already calls, and the real schema names from your Task 6 work
+# (dwh.dwh_clients, dwh.dwh_products, dm.dm_main_dashboard - see your
+# DWH_schema_description.docx / Task6_DWH_Bugs.docx for the exact column
+# names). If you still have your real, already-working sql_config.yaml
+# file, use that one instead of this one - it is proven correct, this one
+# is a best-effort guess and should be double-checked against your real
+# schema (schema names, column names) before you rely on it.
+
+tests:
+  - name: table_exists_dwh_clients
+    sql: "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'dwh' AND table_name = 'dwh_clients')"
+    expected: true
+
+  - name: table_exists_dwh_products
+    sql: "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'dwh' AND table_name = 'dwh_products')"
+    expected: true
+
+  - name: table_exists_dm_main_dashboard
+    sql: "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'dm' AND table_name = 'dm_main_dashboard')"
+    expected: true
+
+  - name: dwh_clients_is_not_empty
+    sql: "SELECT COUNT(*) > 0 FROM dwh.dwh_clients"
+    expected: true
+
+  - name: dwh_products_has_no_null_product_id
+    sql: "SELECT COUNT(*) FROM dwh.dwh_products WHERE product_id IS NULL"
+    expected: 0
+
+  - name: dm_main_dashboard_has_no_duplicate_ids
+    sql: "SELECT COUNT(*) - COUNT(DISTINCT id) FROM dm.dm_main_dashboard"
+    expected: 0
